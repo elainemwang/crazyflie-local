@@ -1,4 +1,5 @@
 from audioop import avg
+from cProfile import label
 from curses import raw
 import logging
 import math
@@ -175,12 +176,35 @@ class ReadMem:
 
 if __name__ == '__main__':
     # plotting
-    map = plt.figure()
-    ax1 = map.add_subplot(3, 2, 1, projection='3d') # my position plot only
-    ax2 = map.add_subplot(3, 2, 2, projection='3d') # their position plot only
-    map_ax = map.add_subplot(3, 2, 3, projection='3d') # both our positions
-    sens_pos = map.add_subplot(3, 2, 4, projection='3d') # my sensor positions
-    ypr_plot = map.add_subplot(3, 2, (5,6)) # our ypr positions
+    map1 = plt.figure(1)
+    ax1 = map1.add_subplot(2, 2, 1, projection='3d') # my position plot only
+    ax1.set_title('Locally Calculated Position')
+    ax1.set_xlabel('Meters')
+    ax1.set_ylabel('Meters')
+    ax1.set_zlabel('Meters')
+    ax2 = map1.add_subplot(2, 2, 2, projection='3d') # their position plot only
+    ax2.set_title('Onboard Calculated Position')
+    ax2.set_xlabel('Meters')
+    ax2.set_ylabel('Meters')
+    ax2.set_zlabel('Meters')
+    map_ax = map1.add_subplot(2, 2, (3,4), projection='3d') # both our positions
+    map_ax.set_title('Both Positions')
+    map_ax.set_xlabel('Meters')
+    map_ax.set_ylabel('Meters')
+    map_ax.set_zlabel('Meters')
+
+    map2 = plt.figure(2)
+    orient_pos = map2.add_subplot(111, projection='3d')  # my orientation
+    orient_pos.set_title('Local Orientation')
+    orient_pos.set_xlabel('Meters')
+    orient_pos.set_ylabel('Meters')
+    orient_pos.set_zlabel('Meters')
+
+    map3 = plt.figure(3)
+    ypr_plot = map3.add_subplot(111) # our ypr positions
+    ypr_plot.set_title('Yaw Pitch Roll Measurements')
+    ypr_plot.set_xlabel('Timestamp (ms)')
+    ypr_plot.set_ylabel('Degrees')
 
     map_ax.autoscale(enable=True, axis='both', tight=True)
     ax1.autoscale(enable=True, axis='both', tight=True)
@@ -199,14 +223,15 @@ if __name__ == '__main__':
     ax2.set_ylim3d([-0.5, 1])
     ax2.set_zlim3d([-0.5, 1])
 
-    sens_pos.set_xlim3d([-0.5, 1])
-    sens_pos.set_ylim3d([-0.5, 1])
-    sens_pos.set_zlim3d([-0.5, 1])
+    orient_pos.set_xlim3d([-0.5, 1])
+    orient_pos.set_ylim3d([-0.5, 1])
+    orient_pos.set_zlim3d([-0.5, 1])
 
-    hl, = map_ax.plot3D([0], [0], [0])
-    hb, = map_ax.plot3D([0], [0], [0])
+    # Setting up the lines
+    hl, = map_ax.plot3D([0], [0], [0], label = "Local Position") # for the combined plot
+    hb, = map_ax.plot3D([0], [0], [0], label = "On Board Position")
 
-    h1, = ax1.plot3D([0], [0], [0])
+    h1, = ax1.plot3D([0], [0], [0]) # for the individual plots
     h2, = ax2.plot3D([0], [0], [0], color = "orange")
 
 
@@ -248,12 +273,12 @@ if __name__ == '__main__':
     cflib.crtp.init_drivers()
 
     # ground truth
-    lg_stab = LogConfig(name='Stabilizer', period_in_ms=100)
+    lg_stab = LogConfig(name='Stabilizer', period_in_ms=10)
     lg_stab.add_variable('stabilizer.roll', 'float')
     lg_stab.add_variable('stabilizer.pitch', 'float')
     lg_stab.add_variable('stabilizer.yaw', 'float')
 
-    lg_pos = LogConfig(name='position', period_in_ms=100)
+    lg_pos = LogConfig(name='position', period_in_ms=10)
     lg_pos.add_variable('lighthouse.x', 'float')
     lg_pos.add_variable('lighthouse.y', 'float')
     lg_pos.add_variable('lighthouse.z', 'float')
@@ -301,11 +326,14 @@ if __name__ == '__main__':
 
 
     ypr_plot.set_xlim([sensor_timestamps[0], sensor_timestamps[-1]])
-    # ypr_plot.set_ylim3d([-0.5, 1])
-    # ypr_plot.set_zlim3d([-0.5, 1])
 
     #count = 0
     three_sensor_pos = []
+    yaw_from_bs = []
+    pitch_from_bs = []
+    roll_from_bs = []
+    timestamps = []
+
     for count, data in enumerate(my_sensor_coords):
         count+=1
         if(count%4 == 0):
@@ -313,21 +341,27 @@ if __name__ == '__main__':
             orient = pc.get_orient(three_sensor_pos)
             y,p,r = pc.getYPR(orient)
             my_ypr_file.write('%f %f %f \n' % (y,p,r))
-            #print(y)
-            if(count%16 == 0):
-                ypr_plot.scatter(sensor_timestamps[int(count/4)-1],y,c='red',s=0.1)
-                ypr_plot.scatter(sensor_timestamps[int(count/4)-1],p,c='blue',s=0.1)
-                ypr_plot.scatter(sensor_timestamps[int(count/4)-1],r,c='black',s=0.1)
-            if(count%256 == 0): # only graph sometimes, not everytime (too messy) GRAPHING PART
-                pg.graph_orient(sens_pos, my_pos_coords[int(count/4)-1], orient)
+            yaw_from_bs.append(y)
+            pitch_from_bs.append(p)
+            roll_from_bs.append(r)
+            timestamps.append(sensor_timestamps[int(count/4)-1])
+            if(count%256 == 0): # only graph sometimes, not everytime (too messy) GRAPHING ORIENTATION MATRIX
+                pg.graph_orient(orient_pos, my_pos_coords[int(count/4)-1], orient)
             three_sensor_pos = []
         else:
             three_sensor_pos.append(data)
     
-    for idx,t in enumerate(stabilizer_timestamps):
-        ypr_plot.scatter(t,stab_y[idx],c='orange',s=0.1)
-        ypr_plot.scatter(t,stab_p[idx],c='cyan',s=0.1)
-        ypr_plot.scatter(t,stab_r[idx],c='brown',s=0.1)
+    ypr_plot.scatter(timestamps,yaw_from_bs,c='red',s=0.1, label='yaw from bs only')
+    ypr_plot.scatter(stabilizer_timestamps,stab_y,c='orange',s=0.1, label='yaw from stab')
+    ypr_plot.scatter(timestamps,pitch_from_bs,c='blue',s=0.1, label='pitch from bs only')
+    ypr_plot.scatter(stabilizer_timestamps,stab_p,c='cyan',s=0.1, label='pitch from stab')
+    ypr_plot.scatter(timestamps,roll_from_bs,c='black',s=0.1, label='roll from bs only')
+    ypr_plot.scatter(stabilizer_timestamps,stab_r,c='brown',s=0.1, label='roll from stab')
+
+    ma_legend = map_ax.legend(loc='upper right')
+    ypr_legend = ypr_plot.legend(loc='upper right')
+    for i in range(0,6):
+        ypr_legend.legendHandles[i]._sizes = [30]
 
     plt.show()
 
