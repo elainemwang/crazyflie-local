@@ -1,3 +1,8 @@
+# Same as v2, but now uses all four sensors and takes the average position calculated from all four sensors. 
+# It also checks to see if a sensor is receiving valid data and only calculates position if all four sensors 
+# output valid data (All sensors are not blocked). The log blocks are organized by sensor (all four angles 
+# from one sensor come in on the same timestamp).
+
 from audioop import avg
 from curses import raw
 import logging

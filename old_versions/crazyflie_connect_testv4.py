@@ -1,3 +1,7 @@
+# Same as v3 except the log blocks are organized by angle (four same angles from all four sensors come in 
+# on the same timestamp Ex. The horizontal angle from Base Station 1). Does not take into account whether 
+# or not sensors are blocked.
+
 from audioop import avg
 from curses import raw
 import logging

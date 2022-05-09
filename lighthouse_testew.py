@@ -1,3 +1,7 @@
+# Test Lighthouse logger from 
+# https://github.com/bitcraze/crazyflie-lib-python/blob/master/examples/lighthouse/multi_bs_geometry_estimation.py, 
+# runs estimate geometry for the Lighthouses.
+
 # -*- coding: utf-8 -*-
 #
 #     ||          ____  _ __

@@ -1,3 +1,7 @@
+# Same as v3 except there are only two log blocks: the first one is 12 angles from three sensors (0,1,2) in FP16, 
+# a two byte half-precision floating point (Each log block can send 27 bytes). So, the last sensor (3) is contained
+#  within another log block. https://forum.bitcraze.io/viewtopic.php?p=21869&hilit=log+angles#p21869 
+
 from audioop import avg
 from curses import raw
 import logging

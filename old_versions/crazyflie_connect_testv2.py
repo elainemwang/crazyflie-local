@@ -1,3 +1,4 @@
+# Same as crazyflie_connect_test.py except it uses Lighthouse 1 angles.
 from curses import raw
 import logging
 import math

@@ -1,3 +1,7 @@
+# Same as v5, now with yaw pitch roll from both the stabilizer (gyro) and our own lighthouse angles 
+# graphed and orientation matrix also graphed. Notes: The yaw and pitch measurements match up pretty well, 
+# but our roll measurements seem to have some trouble when rolling too far away from the 
+# lighthouse (facing the opposite direction), which is expected.
 from audioop import avg
 from cProfile import label
 from curses import raw

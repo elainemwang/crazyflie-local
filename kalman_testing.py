@@ -1,3 +1,5 @@
+# Untested, some basic incomplete starter code for future Extended Kalman Filter testing.
+
 from audioop import avg
 from curses import raw
 import logging

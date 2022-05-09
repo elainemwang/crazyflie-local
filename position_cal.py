@@ -1,3 +1,5 @@
+# Helper functions for calculating the position and orientation from the raw sweep angles.
+
 import numpy as np
 import math
 # https://github.com/bitcraze/crazyflie-firmware/blob/a70c357a7c03b84a0caebe6d31a5fb0ccc40ff2b/src/utils/src/lighthouse/lighthouse_geometry.c

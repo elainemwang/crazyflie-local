@@ -1,3 +1,6 @@
+# Lighthouse position calculations from raw angles compared to logged xyz calculated by Crazyflie firmware. 
+# The orange line is ground truth from Crazyflie firmware and the blue line is our line generated from our 
+# position calculation algorithm. Uses Lighthouse 2 angles, which is not correct. Also only finds the position of one sensor.
 from curses import raw
 import logging
 import math

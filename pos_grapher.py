@@ -1,3 +1,5 @@
+# Helper functions for graphing lines in 3d for the position graphs and the 3d orientation matrix.
+
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
