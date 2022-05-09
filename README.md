@@ -94,3 +94,5 @@ time.sleep(seconds)
 
 When the Crazyflie is low on battery, use the micro usb cable and charging board usually found inside the Crazyflie small green box. 
 The Crazyflie LEDs will provide information about low battery and other important information: https://www.bitcraze.io/documentation/tutorials/getting-started-with-crazyflie-2-x/#understanding-leds
+
+Project Write Up: https://docs.google.com/document/d/1VSMvVgrFVtS3kB8ejUPHN-_43rjTEzWLhK_M4yw6zpg/edit#
