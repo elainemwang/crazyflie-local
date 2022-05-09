@@ -38,16 +38,32 @@ global valid_sensors
 # Only output errors from the logging framework
 logging.basicConfig(level=logging.ERROR)
 
-# log the yaw pitch roll angles to the ypr_file
 def log_stab_callback(timestamp, data, logconf):
     ypr_file.write('[%d][%s]: %s \n' % (timestamp, logconf.name, data))
 
-# log the raw angles to the raw_angles_file
-# calculate the position of the crazyflie from the raw angles of the sensors
-# log the calculated position of the crazyflie to the my_pos_file
-# add the calculated postion to the list of calculated positions for graphing
-def log_raw_callback(timestamp, data, logconf): 
-    sensor_num = int(logconf.name[-1]) # get the sensor index/number from the log name
+# callback for the first 3 sensors
+def log_raw_callback1(timestamp, data, logconf):
+    # TODO: write the raw angles of the first three sensors into the raw_angles_file
+    global prev_pos
+    global curr_pos
+    global valid_sensors
+    currsensor = 0
+    angles = []
+    for key in data:
+        angles.append(data[key])
+        if(len(angles) == 4):
+            pos = pc.intersectLines(pc.parseData(angles,bs0_rot_mat,bs1_rot_mat),bs0_origin,bs1_origin)
+            if not np.array_equal(pos,prev_pos[currsensor]):
+                valid_sensors[currsensor] = 1
+            else:
+                valid_sensors[currsensor] = 1
+            curr_pos[currsensor] = pos
+            currsensor+=1
+            angles = []
+
+# callback for the last sensor
+def log_raw_callback(timestamp, data, logconf):
+    sensor_num = int(logconf.name[-1])
 
     raw_angles_file.write('[%d][%s]: %s \n' % (timestamp, logconf.name, data))
     angles = []
@@ -60,33 +76,29 @@ def log_raw_callback(timestamp, data, logconf):
     global valid_sensors
 
     # check to see if the position is valid
+    # if the previous is exactly the same as the current position, then the sensor is not valid
     if not np.array_equal(pos,prev_pos[sensor_num]):
         valid_sensors[sensor_num] = 1
     else:
-        valid_sensors[sensor_num] = 0
+        valid_sensors[sensor_num] = 1 # set this to 0 if you want to ignore the sensor when invalid data is received
 
     curr_pos[sensor_num] = pos
     
-    # if this is the last sensor, calculate the average position from all four sensors if valid
-    if sensor_num == 3:
-        avg_pos = [0,0,0]
-        for i in range(0,len(curr_pos)):
-            ar = curr_pos[i]
-            if valid_sensors[i]:
-                avg_pos = np.add(avg_pos,ar)
-        # only calculate the position if all four sensors are valid
-        tot_valid = np.sum(valid_sensors) 
-        if(tot_valid == 4):
-            avg_pos = np.divide(avg_pos,tot_valid)
-            global my_pos_coords
-            print(avg_pos)
-            my_pos_coords.append(avg_pos)
-            my_pos_file.write('%s %s %s\n' % (avg_pos[0],avg_pos[1],avg_pos[2]))
-        valid_sensors = [0,0,0,0]
-        prev_pos = curr_pos
+    avg_pos = [0,0,0]
+    for i in range(0,len(curr_pos)):
+        ar = curr_pos[i]
+        if valid_sensors[i]:
+            avg_pos = np.add(avg_pos,ar)
+    tot_valid = np.sum(valid_sensors) 
+    if(tot_valid == 4):
+        avg_pos = np.divide(avg_pos,tot_valid)
+        global my_pos_coords
+        print(avg_pos)
+        my_pos_coords.append(avg_pos)
+        my_pos_file.write('%s %s %s\n' % (avg_pos[0],avg_pos[1],avg_pos[2]))
+    valid_sensors = [0,0,0,0]
+    prev_pos = curr_pos
 
-# log the position of the crazyflie to the pos_file
-# add the postion to the list of true positions for graphing
 def log_pos_callback(timestamp, data, logconf):
     pos_x = data['lighthouse.x']
     pos_y = data['lighthouse.y']
@@ -101,17 +113,14 @@ def simple_log_async(scf, logconfs):
         cf.log.add_config(conf)
     logconfs[0].data_received_cb.add_callback(log_stab_callback)
     logconfs[1].data_received_cb.add_callback(log_pos_callback)
-    for i in range(2,len(logconfs)):
-        logconfs[i].data_received_cb.add_callback(log_raw_callback)
+    logconfs[2].data_received_cb.add_callback(log_raw_callback1)
+    logconfs[3].data_received_cb.add_callback(log_raw_callback)
     for conf in logconfs:
         conf.start()
     time.sleep(10)
     for conf in logconfs:
         conf.stop()
 
-
-# read the memory from the Crazyflie to find the origin and rotation matrices of the lighthouses
-# https://github.com/bitcraze/crazyflie-lib-python/blob/master/examples/lighthouse/read_lighthouse_mem.py
 class ReadMem:
     def __init__(self, uri):
         self._event = Event()
@@ -182,7 +191,7 @@ if __name__ == '__main__':
     h1, = ax1.plot3D([0], [0], [0])
     h2, = ax2.plot3D([0], [0], [0], color = "orange")
 
-    # arrays containing the calculated position and the ground truth position for plotting after logging ends
+
     my_pos_coords = []
     their_pos_coords = []
 
@@ -202,7 +211,6 @@ if __name__ == '__main__':
     pos_file = open("position.txt","a")
     pos_file.truncate(0)
 
-    # initialize arrays for position calculation
     prev_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
     curr_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
     valid_sensors = [0,0,0,0]
@@ -223,23 +231,19 @@ if __name__ == '__main__':
 
     # calibrated lh1 angles
     lg_lh_sen0 = LogConfig(name='lighthouse0', period_in_ms=10)
-    lg_lh_sen0.add_variable('lighthouse.angle0x', 'float')
-    lg_lh_sen0.add_variable('lighthouse.angle0y', 'float')
-    lg_lh_sen0.add_variable('lighthouse.angle1x', 'float')
-    lg_lh_sen0.add_variable('lighthouse.angle1y', 'float')
-
-    lg_lh_sen1 = LogConfig(name='lighthouse1', period_in_ms=10)
-    lg_lh_sen1.add_variable('lighthouse.angle0x_1', 'float')
-    lg_lh_sen1.add_variable('lighthouse.angle0y_1', 'float')
-    lg_lh_sen1.add_variable('lighthouse.angle1x_1', 'float')
-    lg_lh_sen1.add_variable('lighthouse.angle1y_1', 'float')
-
-    lg_lh_sen2 = LogConfig(name='lighthouse2', period_in_ms=10)
-    lg_lh_sen2.add_variable('lighthouse.angle0x_2', 'float')
-    lg_lh_sen2.add_variable('lighthouse.angle0y_2', 'float')
-    lg_lh_sen2.add_variable('lighthouse.angle1x_2', 'float')
-    lg_lh_sen2.add_variable('lighthouse.angle1y_2', 'float')
-
+    lg_lh_sen0.add_variable('lighthouse.angle0x', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle0y', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle1x', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle1y', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle0x_1', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle0y_1', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle1x_1', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle1y_1', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle0x_2', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle0y_2', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle1x_2', 'FP16')
+    lg_lh_sen0.add_variable('lighthouse.angle1y_2', 'FP16')
+    
     lg_lh_sen3 = LogConfig(name='lighthouse3', period_in_ms=10)
     lg_lh_sen3.add_variable('lighthouse.angle0x_3', 'float')
     lg_lh_sen3.add_variable('lighthouse.angle0y_3', 'float')
@@ -255,17 +259,16 @@ if __name__ == '__main__':
         param_value = 0
         cf.param.set_value(param_name, param_value)
         
-        log_confs = [lg_stab, lg_pos, lg_lh_sen0, lg_lh_sen1, lg_lh_sen2, lg_lh_sen3]
+        log_confs = [lg_stab, lg_pos, lg_lh_sen0, lg_lh_sen3]
         simple_log_async(scf, log_confs)
 
-    # graph the crazyflie's position
-    for i in my_pos_coords: # our calculated position
+    for i in my_pos_coords:
         pg.update_line(hl, list(i))
         pg.update_line(h1, list(i))
         
         plt.show(block=False)
 
-    for i in their_pos_coords: # their calculated position
+    for i in their_pos_coords:
         pg.update_line(hb, list(i))
         pg.update_line(h2, list(i))
         plt.show(block=False)

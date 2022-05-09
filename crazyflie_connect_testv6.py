@@ -87,10 +87,12 @@ def log_raw_callback(timestamp, data, logconf):
     global curr_pos
     global valid_sensors
 
+    # check to see if the position is valid
+    # if the previous is exactly the same as the current position, then the sensor is not valid
     if not np.array_equal(pos,prev_pos[sensor_num]):
         valid_sensors[sensor_num] = 1
     else:
-        valid_sensors[sensor_num] = 1
+        valid_sensors[sensor_num] = 1 # set this to 0 if you want to ignore the sensor when invalid data is received
 
     curr_pos[sensor_num] = pos
     
@@ -130,7 +132,7 @@ def simple_log_async(scf, logconfs):
     logconfs[3].data_received_cb.add_callback(log_raw_callback)
     for conf in logconfs:
         conf.start()
-    time.sleep(10)
+    time.sleep(10) # how long to collect data for
     for conf in logconfs:
         conf.stop()
 
@@ -309,8 +311,8 @@ if __name__ == '__main__':
     with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
         # set method to cross-beam method to get lighthouse.x,y,z
         cf = scf.cf
-        param_name = "lighthouse.method"
-        param_value = 0
+        param_name = "lighthouse.method" 
+        param_value = 0 # Estimation Method: 0:CrossingBeam, 1:Sweep in EKF (extended Kalman Filter) (default: 1)
         cf.param.set_value(param_name, param_value)
         
         log_confs = [lg_stab, lg_pos, lg_lh_sen0, lg_lh_sen3]

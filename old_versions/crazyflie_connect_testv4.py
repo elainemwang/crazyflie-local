@@ -35,7 +35,6 @@ global bs1_origin
 
 global prev_pos
 global curr_pos
-global valid_sensors
 
 sensor_angles = [[],[],[],[]]
 sensor_pos = []
@@ -181,7 +180,6 @@ if __name__ == '__main__':
 
     prev_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
     curr_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
-    valid_sensors = [0,0,0,0]
 
     # Initialize the low-level drivers
     cflib.crtp.init_drivers()
