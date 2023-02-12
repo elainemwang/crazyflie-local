@@ -10,6 +10,7 @@ import math
 import time
 import numpy as np
 from threading import Event
+from arena import *
 
 from cflib.crazyflie.mem import LighthouseMemHelper
 import cflib.crtp
@@ -115,6 +116,7 @@ def log_raw_callback(timestamp, data, logconf):
         print(avg_pos)
         my_pos_coords.append(avg_pos)
         my_pos_file.write('%s %s %s\n' % (avg_pos[0],avg_pos[1],avg_pos[2]))
+        scene.update_object(box, position=Position(avg_pos[0],avg_pos[1],avg_pos[2]))
     valid_sensors = [0,0,0,0]
     prev_pos = curr_pos
 
@@ -181,6 +183,12 @@ class ReadMem:
 
 
 if __name__ == '__main__':
+    scene = Scene(host="mqtt.arenaxr.org", scene="crazyflie", namespace="emwang2")
+    # make a box
+    box = Box(object_id="my_box", position=Position(0,0,0), scale=Scale(0.5,0.5,0.5))
+    # add the box
+    scene.add_object(box)
+
     # plotting
     map1 = plt.figure(1)
     ax1 = map1.add_subplot(2, 2, 1, projection='3d') # my position plot only
