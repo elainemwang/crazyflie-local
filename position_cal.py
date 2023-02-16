@@ -15,6 +15,7 @@ def getV(hor, vert):
 
 # given a lists of four angles from the same sensor, return global rays that intersect the lighthouse and the sensor
 def parseData(data, bs0_rot_mat, bs1_rot_mat): 
+    # print(data,bs0_rot_mat,bs1_rot_mat)
     bs0_angle_hor, bs0_angle_vert, bs1_angle_hor, bs1_angle_vert = data
 
     # get the normal vectors to the lighthouse sweep planes
@@ -44,6 +45,8 @@ def intersectLines(input, bs0_origin, bs1_origin):
     d = np.dot(line0,w_0)
     e = np.dot(line1,w_0)
     denom = a*c - b*b
+    # print(line1)
+    # print(a,b,c,denom)
     if(denom != 0):
         s = (b*e - c*d) / denom
         t = (a*e - b*d) / denom

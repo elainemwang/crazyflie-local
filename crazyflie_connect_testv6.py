@@ -9,7 +9,7 @@ import logging
 import math
 import time
 import numpy as np
-from threading import Event
+from threading import Event as Ev
 from arena import *
 
 from cflib.crazyflie.mem import LighthouseMemHelper
@@ -47,8 +47,46 @@ global stab_y
 global stab_r
 global stab_p
 
+#raw_angles file
+raw_angles_file = open("raw_angles.txt","a")
+raw_angles_file.truncate(0)
+
+#my position file
+my_pos_file = open("my_pos_file.txt","a")
+my_pos_file.truncate(0)
+
+#yaw-pitch-row file
+ypr_file = open("yaw_pitch_row.txt","a")
+ypr_file.truncate(0)
+
+#my ypr file
+my_ypr_file = open("my_ypr_file.txt","a")
+my_ypr_file.truncate(0)
+
+#position file
+pos_file = open("position.txt","a")
+pos_file.truncate(0)
+
+
+my_pos_coords = []
+their_pos_coords = [(0,0,0)]
+my_sensor_coords = []
+
+stabilizer_timestamps = []
+sensor_timestamps = []
+stab_y = []
+stab_r = []
+stab_p = []
+
+prev_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
+curr_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
+valid_sensors = [0,0,0,0]
+
 # Only output errors from the logging framework
 logging.basicConfig(level=logging.ERROR)
+
+scene = Scene(host="mqtt.arenaxr.org", scene="crazyflie", namespace="emwang2")
+box = Box(object_id="my_box", position=Position(0,4,-2), scale=Scale(2,2,2))
 
 def log_stab_callback(timestamp, data, logconf):
     stabilizer_timestamps.append(timestamp)
@@ -113,12 +151,15 @@ def log_raw_callback(timestamp, data, logconf):
     if(tot_valid == 4):
         avg_pos = np.divide(avg_pos,tot_valid)
         global my_pos_coords
-        print(avg_pos)
         my_pos_coords.append(avg_pos)
         my_pos_file.write('%s %s %s\n' % (avg_pos[0],avg_pos[1],avg_pos[2]))
-        scene.update_object(box, position=Position(avg_pos[0],avg_pos[1],avg_pos[2]))
+        
     valid_sensors = [0,0,0,0]
     prev_pos = curr_pos
+
+def update_box(x,y,z):
+    scene.update_object(box, position=Position(x,y,z))
+    print(box.data.position)
 
 def log_pos_callback(timestamp, data, logconf):
     pos_x = data['lighthouse.x']
@@ -126,6 +167,8 @@ def log_pos_callback(timestamp, data, logconf):
     pos_z = data['lighthouse.z']
     global their_pos_coords
     their_pos_coords.append((pos_x,pos_y,pos_z))
+    move_xr_drone()
+    print("from callback:", their_pos_coords[-1])
     pos_file.write('%s %s %s\n' % (pos_x,pos_y,pos_z))
 
 def simple_log_async(scf, logconfs):
@@ -144,7 +187,7 @@ def simple_log_async(scf, logconfs):
 
 class ReadMem:
     def __init__(self, uri):
-        self._event = Event()
+        self._event = Ev()
 
         with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
             helper = LighthouseMemHelper(scf.cf)
@@ -166,7 +209,7 @@ class ReadMem:
                 bs0_origin = np.array(data.origin)
                 global bs0_rot_mat
                 bs0_rot_mat = np.array(data.rotation_matrix)
-            else:
+            elif (id == 1):
                 global bs1_origin
                 bs1_origin = np.array(data.origin)
                 global bs1_rot_mat
@@ -181,108 +224,19 @@ class ReadMem:
             print()
         self._event.set()
 
+def move_xr_drone():
+    pos_x,pos_y,pos_z = their_pos_coords[-1]
+    scene.update_object(box, position=Position(pos_x*10,pos_z*10,pos_y*10))
+    print(box.data.position)
 
-if __name__ == '__main__':
-    scene = Scene(host="mqtt.arenaxr.org", scene="crazyflie", namespace="emwang2")
-    # make a box
-    box = Box(object_id="my_box", position=Position(0,0,0), scale=Scale(0.5,0.5,0.5))
-    # add the box
+def add_box():
     scene.add_object(box)
+    scene.update_object(box, position=Position(2,4,-2))
+    print("first box", box.data.position)
 
-    # plotting
-    map1 = plt.figure(1)
-    ax1 = map1.add_subplot(2, 2, 1, projection='3d') # my position plot only
-    ax1.set_title('Locally Calculated Position')
-    ax1.set_xlabel('Meters')
-    ax1.set_ylabel('Meters')
-    ax1.set_zlabel('Meters')
-    ax2 = map1.add_subplot(2, 2, 2, projection='3d') # their position plot only
-    ax2.set_title('Onboard Calculated Position')
-    ax2.set_xlabel('Meters')
-    ax2.set_ylabel('Meters')
-    ax2.set_zlabel('Meters')
-    map_ax = map1.add_subplot(2, 2, (3,4), projection='3d') # both our positions
-    map_ax.set_title('Both Positions')
-    map_ax.set_xlabel('Meters')
-    map_ax.set_ylabel('Meters')
-    map_ax.set_zlabel('Meters')
-
-    map2 = plt.figure(2)
-    orient_pos = map2.add_subplot(111, projection='3d')  # my orientation
-    orient_pos.set_title('Local Orientation')
-    orient_pos.set_xlabel('Meters')
-    orient_pos.set_ylabel('Meters')
-    orient_pos.set_zlabel('Meters')
-
-    map3 = plt.figure(3)
-    ypr_plot = map3.add_subplot(111) # our ypr positions
-    ypr_plot.set_title('Yaw Pitch Roll Measurements')
-    ypr_plot.set_xlabel('Timestamp (ms)')
-    ypr_plot.set_ylabel('Degrees')
-
-    map_ax.autoscale(enable=True, axis='both', tight=True)
-    ax1.autoscale(enable=True, axis='both', tight=True)
-    ax2.autoscale(enable=True, axis='both', tight=True)
-
-    # # # Setting the axes properties
-    map_ax.set_xlim3d([-0.5, 1])
-    map_ax.set_ylim3d([-0.5, 1])
-    map_ax.set_zlim3d([-0.5, 1])
-
-    ax1.set_xlim3d([-0.5, 1])
-    ax1.set_ylim3d([-0.5, 1])
-    ax1.set_zlim3d([-0.5, 1])
-
-    ax2.set_xlim3d([-0.5, 1])
-    ax2.set_ylim3d([-0.5, 1])
-    ax2.set_zlim3d([-0.5, 1])
-
-    orient_pos.set_xlim3d([-0.5, 1])
-    orient_pos.set_ylim3d([-0.5, 1])
-    orient_pos.set_zlim3d([-0.5, 1])
-
-    # Setting up the lines
-    hl, = map_ax.plot3D([0], [0], [0], label = "Local Position") # for the combined plot
-    hb, = map_ax.plot3D([0], [0], [0], label = "On Board Position")
-
-    h1, = ax1.plot3D([0], [0], [0]) # for the individual plots
-    h2, = ax2.plot3D([0], [0], [0], color = "orange")
-
-
-    my_pos_coords = []
-    their_pos_coords = []
-    my_sensor_coords = []
-
-    stabilizer_timestamps = []
-    sensor_timestamps = []
-    stab_y = []
-    stab_r = []
-    stab_p = []
-
-    #raw_angles file
-    raw_angles_file = open("raw_angles.txt","a")
-    raw_angles_file.truncate(0)
-
-    #my position file
-    my_pos_file = open("my_pos_file.txt","a")
-    my_pos_file.truncate(0)
-
-    #yaw-pitch-row file
-    ypr_file = open("yaw_pitch_row.txt","a")
-    ypr_file.truncate(0)
-
-    #my ypr file
-    my_ypr_file = open("my_ypr_file.txt","a")
-    my_ypr_file.truncate(0)
-
-    #position file
-    pos_file = open("position.txt","a")
-    pos_file.truncate(0)
-
-    prev_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
-    curr_pos = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
-    valid_sensors = [0,0,0,0]
-
+@scene.run_once
+def main():
+    add_box()
     # Initialize the low-level drivers
     cflib.crtp.init_drivers()
 
@@ -330,54 +284,6 @@ if __name__ == '__main__':
         log_confs = [lg_stab, lg_pos, lg_lh_sen0, lg_lh_sen3]
         simple_log_async(scf, log_confs)
 
-    for i in my_pos_coords:
-        pg.update_line(hl, list(i))
-        pg.update_line(h1, list(i))
-
-    for i in their_pos_coords:
-        pg.update_line(hb, list(i))
-        pg.update_line(h2, list(i))
-
-
-    ypr_plot.set_xlim([sensor_timestamps[0], sensor_timestamps[-1]])
-
-    #count = 0
-    three_sensor_pos = []
-    yaw_from_bs = []
-    pitch_from_bs = []
-    roll_from_bs = []
-    timestamps = []
-
-    for count, data in enumerate(my_sensor_coords):
-        count+=1
-        if(count%4 == 0):
-            # if all three sensor values are in, then find the orientation
-            orient = pc.get_orient(three_sensor_pos)
-            y,p,r = pc.getYPR(orient)
-            my_ypr_file.write('%f %f %f \n' % (y,p,r))
-            yaw_from_bs.append(y)
-            pitch_from_bs.append(p)
-            roll_from_bs.append(r)
-            timestamps.append(sensor_timestamps[int(count/4)-1])
-            if(count%256 == 0): # only graph sometimes, not everytime (too messy) GRAPHING ORIENTATION MATRIX
-                pg.graph_orient(orient_pos, my_pos_coords[int(count/4)-1], orient)
-            three_sensor_pos = []
-        else:
-            three_sensor_pos.append(data)
-    
-    ypr_plot.scatter(timestamps,yaw_from_bs,c='red',s=0.1, label='yaw from bs only')
-    ypr_plot.scatter(stabilizer_timestamps,stab_y,c='orange',s=0.1, label='yaw from stab')
-    ypr_plot.scatter(timestamps,pitch_from_bs,c='blue',s=0.1, label='pitch from bs only')
-    ypr_plot.scatter(stabilizer_timestamps,stab_p,c='cyan',s=0.1, label='pitch from stab')
-    ypr_plot.scatter(timestamps,roll_from_bs,c='black',s=0.1, label='roll from bs only')
-    ypr_plot.scatter(stabilizer_timestamps,stab_r,c='brown',s=0.1, label='roll from stab')
-
-    ma_legend = map_ax.legend(loc='upper right')
-    ypr_legend = ypr_plot.legend(loc='upper right')
-    for i in range(0,6):
-        ypr_legend.legendHandles[i]._sizes = [30]
-
-    plt.show()
 
     raw_angles_file.close()
     my_pos_file.close()
@@ -385,6 +291,5 @@ if __name__ == '__main__':
     my_ypr_file.close()
     pos_file.close()
 
-    
 
-
+scene.run_tasks()
