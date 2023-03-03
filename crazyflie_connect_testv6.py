@@ -227,6 +227,7 @@ class ReadMem:
 def move_xr_drone():
     pos_x,pos_y,pos_z = their_pos_coords[-1]
     scene.update_object(box, position=Position(pos_x*10,pos_z*10,pos_y*10))
+    #scene.event_loop.loop.call_later(Sprite.REFRESH_RATE(), self.follow_cam, scene)
     print(box.data.position)
 
 def add_box():
@@ -234,7 +235,6 @@ def add_box():
     scene.update_object(box, position=Position(2,4,-2))
     print("first box", box.data.position)
 
-@scene.run_once
 def main():
     add_box()
     # Initialize the low-level drivers
@@ -292,4 +292,4 @@ def main():
     pos_file.close()
 
 
-scene.run_tasks()
+scene.run_async()
