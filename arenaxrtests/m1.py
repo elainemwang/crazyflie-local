@@ -9,11 +9,11 @@ scene = Scene(host="mqtt.arenaxr.org", scene="crazyflie", namespace="emwang2")
 box = Box(object_id="my_box", position=Position(0,4,-2), scale=Scale(2,2,2))
 
 x,y,z = 0,0,0
-@scene.run_forever(interval_ms=50)
+@scene.run_forever(interval_ms=1)
 def periodic():
     global x, y, z    # non allocated variables need to be global
     global pc
-    box.update_attributes(position=Position(x*10,z*10,-y*10))
+    box.update_attributes(position=Position(-y*10,z*10,-x*10))
     scene.update_object(box)
     print("from m11: ", box.data.position)
     x,y,z = pc.recv()

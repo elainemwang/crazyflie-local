@@ -47,7 +47,7 @@ def simple_log_async(scf, logconfs):
     logconfs[0].data_received_cb.add_callback(log_pos_callback)
     for conf in logconfs:
         conf.start()
-    time.sleep(10) # how long to collect data for
+    time.sleep(100) # how long to collect data for
     for conf in logconfs:
         conf.stop()
 
