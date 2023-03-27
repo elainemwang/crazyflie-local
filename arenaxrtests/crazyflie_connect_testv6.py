@@ -37,14 +37,25 @@ def log_pos_callback(timestamp, data, logconf):
     pos_x = data['lighthouse.x']
     pos_y = data['lighthouse.y']
     pos_z = data['lighthouse.z']
+
+
    # print('pos: ({}, {}, {})'.format(pos_x, pos_y, pos_z))
     child_conn.send((pos_x,pos_y,pos_z))
+
+def log_stab_callback(timestamp, data, logconf):
+    stab_y = data['stabilizer.yaw']
+    stab_p = data['stabilizer.pitch']
+    stab_r = data['stabilizer.roll']
+
+    #print('stab: ({}, {}, {})'.format(stab_y, stab_p, stab_r))
+    child_conn.send(("stab",stab_y,stab_p,stab_r))
 
 def simple_log_async(scf, logconfs):
     cf = scf.cf
     for conf in logconfs:
         cf.log.add_config(conf)
     logconfs[0].data_received_cb.add_callback(log_pos_callback)
+    logconfs[1].data_received_cb.add_callback(log_stab_callback)
     for conf in logconfs:
         conf.start()
     time.sleep(100) # how long to collect data for
@@ -105,6 +116,11 @@ def main():
     lg_pos.add_variable('lighthouse.y', 'float')
     lg_pos.add_variable('lighthouse.z', 'float')
 
+    lg_stab = LogConfig(name='Stabilizer', period_in_ms=10)
+    lg_stab.add_variable('stabilizer.roll', 'float')
+    lg_stab.add_variable('stabilizer.pitch', 'float')
+    lg_stab.add_variable('stabilizer.yaw', 'float')
+
     ReadMem(uri)
 
     with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
@@ -114,7 +130,7 @@ def main():
         param_value = 0 # Estimation Method: 0:CrossingBeam, 1:Sweep in EKF (extended Kalman Filter) (default: 1)
         cf.param.set_value(param_name, param_value)
         
-        simple_log_async(scf, [lg_pos])
+        simple_log_async(scf, [lg_stab, lg_pos])
 
 if __name__ == '__main__':
     main()

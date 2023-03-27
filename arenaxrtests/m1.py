@@ -13,16 +13,20 @@ x,y,z = 0,0,0
 def periodic():
     global x, y, z    # non allocated variables need to be global
     global pc
-    box.update_attributes(position=Position(-y*10,z*10,-x*10))
-    scene.update_object(box)
-    print("from m11: ", box.data.position)
-    x,y,z = pc.recv()
+    stab_or_pos, x,y,z = pc.recv()
+    if stab_or_pos == "stab":
+        box.update_attributes(rotation=Rotation(y,z,x))
+        scene.update_object(box)
+        print("from m11: ", box.data.rotation)
+    else:
+        box.update_attributes(position=Position(-y*10,z*10,-x*10))
+        scene.update_object(box)
+        print("from m11: ", box.data.position)
 
 def f(parent_conn):
    global pc
    pc = parent_conn
    scene.run_tasks()
-
 
 def test(parent_conn):
     while 1:
