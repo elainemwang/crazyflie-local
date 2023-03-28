@@ -2,15 +2,10 @@
 # graphed and orientation matrix also graphed. Notes: The yaw and pitch measurements match up pretty well, 
 # but our roll measurements seem to have some trouble when rolling too far away from the 
 # lighthouse (facing the opposite direction), which is expected.
-from audioop import avg
-from cProfile import label
-from curses import raw
 import logging
-import math
 import time
 import numpy as np
 from threading import Event as Ev
-from arena import *
 
 from cflib.crazyflie.mem import LighthouseMemHelper
 import cflib.crtp
@@ -85,9 +80,6 @@ valid_sensors = [0,0,0,0]
 # Only output errors from the logging framework
 logging.basicConfig(level=logging.ERROR)
 
-scene = Scene(host="mqtt.arenaxr.org", scene="crazyflie", namespace="emwang2")
-box = Box(object_id="my_box", position=Position(0,4,-2), scale=Scale(2,2,2))
-
 def log_stab_callback(timestamp, data, logconf):
     stabilizer_timestamps.append(timestamp)
     stab_y.append(data['stabilizer.yaw'])
@@ -157,17 +149,12 @@ def log_raw_callback(timestamp, data, logconf):
     valid_sensors = [0,0,0,0]
     prev_pos = curr_pos
 
-def update_box(x,y,z):
-    scene.update_object(box, position=Position(x,y,z))
-    print(box.data.position)
-
 def log_pos_callback(timestamp, data, logconf):
     pos_x = data['lighthouse.x']
     pos_y = data['lighthouse.y']
     pos_z = data['lighthouse.z']
     global their_pos_coords
     their_pos_coords.append((pos_x,pos_y,pos_z))
-    move_xr_drone()
     print("from callback:", their_pos_coords[-1])
     pos_file.write('%s %s %s\n' % (pos_x,pos_y,pos_z))
 
@@ -224,19 +211,7 @@ class ReadMem:
             print()
         self._event.set()
 
-def move_xr_drone():
-    pos_x,pos_y,pos_z = their_pos_coords[-1]
-    scene.update_object(box, position=Position(pos_x*10,pos_z*10,pos_y*10))
-    #scene.event_loop.loop.call_later(Sprite.REFRESH_RATE(), self.follow_cam, scene)
-    print(box.data.position)
-
-def add_box():
-    scene.add_object(box)
-    scene.update_object(box, position=Position(2,4,-2))
-    print("first box", box.data.position)
-
 def main():
-    add_box()
     # Initialize the low-level drivers
     cflib.crtp.init_drivers()
 
@@ -291,5 +266,5 @@ def main():
     my_ypr_file.close()
     pos_file.close()
 
-
-scene.run_async()
+if __name__ == '__main__':
+    main()
