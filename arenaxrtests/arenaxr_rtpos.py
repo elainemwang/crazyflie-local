@@ -1,12 +1,11 @@
-from multiprocessing import Process,Pipe
 from arena import *
-import time
-import numpy as np
+import math
+
 pc = 0
 # setup library
 scene = Scene(host="mqtt.arenaxr.org", scene="crazyflie", namespace="emwang2")
 # make a box
-box = Box(object_id="my_box", position=Position(0,4,-2), scale=Scale(2,2,2))
+box = Box(object_id="my_box", position=Position(0,4,-2), scale=Scale(2,0.3,4))
 
 x,y,z = 0,0,0
 @scene.run_forever(interval_ms=1)
@@ -15,13 +14,14 @@ def periodic():
     global pc
     stab_or_pos, x,y,z = pc.recv()
     if stab_or_pos == "stab":
-        box.update_attributes(rotation=Rotation(y,z,x))
+        box.update_attributes(rotation=Rotation(math.radians(y),math.radians(x),math.radians(-z)))
         scene.update_object(box)
-        print("from m11: ", box.data.rotation)
+        print("from m11 rotation: ", box.data.rotation)
+
     else:
         box.update_attributes(position=Position(-y*10,z*10,-x*10))
         scene.update_object(box)
-        print("from m11: ", box.data.position)
+        print("from m11 position: ", box.data.position)
 
 def f(parent_conn):
    global pc

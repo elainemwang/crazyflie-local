@@ -19,8 +19,10 @@ from cflib.crazyflie.syncLogger import SyncLogger
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 
-import position_cal as pc
-import pos_grapher as pg
+import elib.position_cal as pc
+import elib.pos_grapher as pg
+
+# from elib.cf_funcs import ReadMem TODO: change this, delete the function after fixing ReadMem, fix passing the basestation data to pos calc
 
 
 # URI to the Crazyflie to connect to
