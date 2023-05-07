@@ -3,7 +3,7 @@ import logging
 import time
 import numpy as np
 from threading import Event as Ev
-from arena import *
+# from arena import *
 from multiprocessing import Process,Pipe
 from arenaxr_rtpos import f
 
