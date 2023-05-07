@@ -1,7 +1,4 @@
-# Same as v5, now with yaw pitch roll from both the stabilizer (gyro) and our own lighthouse angles 
-# graphed and orientation matrix also graphed. Notes: The yaw and pitch measurements match up pretty well, 
-# but our roll measurements seem to have some trouble when rolling too far away from the 
-# lighthouse (facing the opposite direction), which is expected.
+
 import logging
 import time
 import numpy as np
@@ -10,7 +7,6 @@ from arena import *
 from multiprocessing import Process,Pipe
 from arenaxr_rtpos import f
 
-from cflib.crazyflie.mem import LighthouseMemHelper
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
@@ -33,6 +29,19 @@ def log_pos_callback(timestamp, data, logconf):
 
     child_conn.send(("pos",pos_x,pos_y,pos_z))
 
+# kalman callback
+def log_kpos_callback(timestamp, data, logconf):
+    pos_x = data['stateEstimate.x']
+    pos_y = data['stateEstimate.y']
+    pos_z = data['stateEstimate.z']
+
+    k_yaw = data['stateEstimate.yaw']
+    k_pitch = data['stateEstimate.pitch']
+    k_roll = data['stateEstimate.roll']
+
+    child_conn.send(("pos",pos_x,pos_y,pos_z))
+    # child_conn.send(("stab",k_yaw,k_pitch,k_roll))
+
 def log_stab_callback(timestamp, data, logconf):
     stab_y = data['stabilizer.yaw']
     stab_p = data['stabilizer.pitch']
@@ -45,7 +54,8 @@ def simple_log_async(scf, logconfs):
     for conf in logconfs:
         cf.log.add_config(conf)
     logconfs[0].data_received_cb.add_callback(log_stab_callback)
-    logconfs[1].data_received_cb.add_callback(log_pos_callback)
+    # logconfs[1].data_received_cb.add_callback(log_pos_callback)
+    logconfs[2].data_received_cb.add_callback(log_kpos_callback)
     for conf in logconfs:
         conf.start()
     time.sleep(100) # how long to collect data for
@@ -54,7 +64,6 @@ def simple_log_async(scf, logconfs):
 
 def main():
     # Initialize the low-level drivers
-    print("what")
     cflib.crtp.init_drivers()
 
     # arenaxr process
@@ -62,7 +71,7 @@ def main():
     p.start()
 
     # ground truth
-    lg_pos = LogConfig(name='position', period_in_ms=50)
+    lg_pos = LogConfig(name='position', period_in_ms=100)
     lg_pos.add_variable('lighthouse.x', 'float')
     lg_pos.add_variable('lighthouse.y', 'float')
     lg_pos.add_variable('lighthouse.z', 'float')
@@ -72,14 +81,22 @@ def main():
     lg_stab.add_variable('stabilizer.pitch', 'float')
     lg_stab.add_variable('stabilizer.yaw', 'float')
 
+    lg_kpos = LogConfig(name='Kalman', period_in_ms=50)
+    lg_kpos.add_variable('stateEstimate.x', 'float')
+    lg_kpos.add_variable('stateEstimate.y', 'float')
+    lg_kpos.add_variable('stateEstimate.z', 'float')
+    lg_kpos.add_variable('stateEstimate.roll', 'float')
+    lg_kpos.add_variable('stateEstimate.pitch', 'float')
+    lg_kpos.add_variable('stateEstimate.yaw', 'float')
+
     with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
-        # set method to cross-beam method to get lighthouse.x,y,z
+        # set method to cross-beam method to get lighthouse.x,y,z instead of StateEstimate.x,y,z
         cf = scf.cf
         param_name = "lighthouse.method" 
-        param_value = 0 # Estimation Method: 0:CrossingBeam, 1:Sweep in EKF (extended Kalman Filter) (default: 1)
+        param_value = 1 # Estimation Method: 0:CrossingBeam, 1:Sweep in EKF (extended Kalman Filter) (default: 1)
         cf.param.set_value(param_name, param_value)
         
-        simple_log_async(scf, [lg_stab, lg_pos])
+        simple_log_async(scf, [lg_stab, lg_pos, lg_kpos])
 
 if __name__ == '__main__':
     main()
